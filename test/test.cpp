@@ -1,53 +1,148 @@
-#include <catch2/catch_test_macros.hpp>
-#include <iostream>
+// Name: Sofia Galindo
+// ufid: 97453336 // <-- replace with your real ufid
 
-// uncomment and replace the following with your own headers
-// #include "AVL.h"
+#include <catch2/catch_test_macros.hpp>
+#include <string>
+#include <sstream>
+#include <vector>
+#include <iomanip>
+#include <algorithm>
+
+#include "CommandRunner.h" 
+// You create this. It should declare:
+// std::string runCommands(const std::string& input);
 
 using namespace std;
 
-// the syntax for defining a test is below. It is important for the name to be unique, but you can group multiple tests with [tags]. A test can have [multiple][tags] using that syntax.
-TEST_CASE("Example Test Name - Change me!", "[flag]"){
-	// instantiate any class members that you need to test here
-	int one = 1;
-
-	// anything that evaluates to false in a REQUIRE block will result in a failing test 
-	REQUIRE(one == 0); // fix me!
-
-	// all REQUIRE blocks must evaluate to true for the whole test to pass
-	REQUIRE(false); // also fix me!
+// Helper: make 8-digit ufid strings like 00000042
+static string ufid(int x) {
+    ostringstream oss;
+    oss << setw(8) << setfill('0') << x;
+    return oss.str();
 }
 
-TEST_CASE("Test 2", "[flag]"){
-	// you can also use "sections" to share setup code between tests, for example:
-	int one = 1;
-
-	SECTION("num is 2") {
-		int num = one + 1;
-		REQUIRE(num == 2);
-	};
-
-	SECTION("num is 3") {
-		int num = one + 2;
-		REQUIRE(num == 3);
-	};
-
-	// each section runs the setup code independently to ensure that they don't affect each other
+// Helper: build expected inorder output line with commas like "N00000000, N00000001\n"
+static string line(const vector<string>& names) {
+    string out;
+    for (size_t i = 0; i < names.size(); i++) {
+        out += names[i];
+        if (i + 1 < names.size()) out += ", ";
+    }
+    out += "\n";
+    return out;
 }
 
-// you must write 5 unique, meaningful tests for credit on the testing portion of this project!
 
-// the provided test from the template is below.
 
-TEST_CASE("Example BST Insert", "[flag]"){
-	/*
-		MyAVLTree tree;   // Create a Tree object
-		tree.insert(3);
-		tree.insert(2);
-		tree.insert(1);
-		std::vector<int> actualOutput = tree.inorder();
-		std::vector<int> expectedOutput = {1, 2, 3};
-		REQUIRE(expectedOutput.size() == actualOutput.size());
-		REQUIRE(actualOutput == expectedOutput);
-	*/
+TEST_CASE("Five+ command executions print unsuccessful") {
+    
+    ostringstream in;
+    in
+      << 6 << "\n"
+      << "insert \"Ana\" 12345678\n"       
+      << "insert \"A11y\" 45679999\n"           // invalid name 
+      << "insert \"Lily\" 123\n"                // wrong id length
+      << "insert \"Sofia\" 12345678\n"          // duplicate ufid 
+      << "remove 22222222\n"                    // missing ufid 
+      << "remove A2222222\n"                    // invalid ufid 
+		
+    
+
+    string out = runCommands(in.str());
+
+    // Counts "unsuccessful"
+    size_t pos = 0;
+    int count = 0;
+    while (true) {
+        pos = out.find("unsuccessful", pos);
+        if (pos == string::npos) break;
+        count++;
+        pos += string("unsuccessful").size();
+    }
+    REQUIRE(count >= 5);
+}
+
+TEST_CASE("Insert triggers all four rotation cases (LL, RR, LR, RL)") {
+    
+    // if print the names in preorder
+
+    SECTION("LL rotation: 30,20,10 -> root should become 20") {
+        ostringstream in;
+        in << 4 << "\n"
+           << "insert \"n30\" 00000030\n"
+           << "insert \"n20\" 00000020\n"
+           << "insert \"n10\" 00000010\n"
+           << "printPreorder\n";
+        string out = runCommands(in.str());
+        REQUIRE(out.find("n20, n10, n30") != string::npos);
+    }
+
+    SECTION("RR rotation: 10,20,30 -> root should become 20") {
+        ostringstream in;
+        in << 4 << "\n"
+           << "insert \"n10\" 00000010\n"
+           << "insert \"n20\" 00000020\n"
+           << "insert \"n30\" 00000030\n"
+           << "printPreorder\n";
+        string out = runCommands(in.str());
+        REQUIRE(out.find("n20, n10, n30") != string::npos);
+    }
+
+    SECTION("LR rotation: 30,10,20 -> root should become 20") {
+        ostringstream in;
+        in << 4 << "\n"
+           << "insert \"n30\" 00000030\n"
+           << "insert \"n10\" 00000010\n"
+           << "insert \"n20\" 00000020\n"
+           << "printPreorder\n";
+        string out = runCommands(in.str());
+        REQUIRE(out.find("n20, n10, n30") != string::npos);
+    }
+
+    SECTION("RL rotation: 10,30,20 -> root should become 20") {
+        ostringstream in;
+        in << 4 << "\n"
+           << "insert \"n10\" 00000010\n"
+           << "insert \"n30\" 00000030\n"
+           << "insert \"n20\" 00000020\n"
+           << "printPreorder\n";
+        string out = runCommands(in.str());
+        REQUIRE(out.find("n20, n10, n30") != string::npos);
+    }
+}
+
+TEST_CASE("Insert 100 nodes, remove 10, verify inorder has remaining 90 in order", "[bulk][inorder]") {
+    vector<int> removed = {7, 13, 22, 35, 41, 56, 63, 78, 84, 99};
+    vector<bool> isRemoved(100, false);
+    for (int x : removed) isRemoved[x] = true;
+
+    
+    // 100 inserts , 10 removes , 1 printInorder 
+    ostringstream in;
+    in << 111 << "\n";
+
+    for (int i = 0; i < 100; i++) {
+        string id = ufid(i);
+        string name = "N" + id;
+        in << "insert \"" << name << "\" " << id << "\n";
+    }
+    for (int x : removed) {
+        in << "remove " << ufid(x) << "\n";
+    }
+    in << "printInorder\n";
+
+    string out = runCommands(in.str());
+
+
+    vector<string> expectedNames;
+    expectedNames.reserve(90); //build expected line sorted w/o skipp
+    for (int i = 0; i < 100; i++) {
+        if (!isRemoved[i]) {
+            string id = ufid(i);
+            expectedNames.push_back("N" + id);
+        }
+    }
+    string expectedLine = line(expectedNames);
+
+    REQUIRE(out.find(expectedLine) != string::npos);
 }
